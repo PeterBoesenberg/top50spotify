@@ -1,0 +1,17 @@
+#import(data.table)
+
+load_data <- function() {
+  dt <- fread("data/top50.csv",
+                 stringsAsFactors = F, nrows=1000)
+  dt <- select_features(dt)
+  dt
+}
+
+select_features <- function(dt) {
+  dt <- dt[,Beats.Per.Minute:Popularity]
+  # # dt <- subset(dt, select =c(e_pov, m_pov ))
+  # dt <- subset(dt, select =c(rpl_theme1, rpl_theme2, rpl_theme3, rpl_theme4))
+  # names(dt) <- c("socioeconomic", "household_composition", "minorty_language", "housing_transportation")
+  
+  dt
+}

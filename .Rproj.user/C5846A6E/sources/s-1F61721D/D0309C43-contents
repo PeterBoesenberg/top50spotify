@@ -1,0 +1,101 @@
+import("plotly")
+import("modules")
+import("stringr")
+import("data.table")
+import("utils")
+
+export("render_persona_chart")
+
+count_of_properties <- 3
+count_of_reasons <- 3
+
+build_chart_data <- function(dt, fields){
+  chart_data <- as.data.table(transpose(dt$centers))
+  chart_data <- chart_data[, attributes := names(dt$centers)]
+  chart_data
+}
+
+#Hover-Text abhaengig vom Feldtypen berechnen/formatieren
+build_hover_text <- function(dt) {
+  dt[, hover := ""]
+  dt[type=="integer", hover := round(as.numeric(value),1)]
+
+  for(i in 1:nrow(dt)) {
+    type <- dt[i, type]
+    if(!is.na(type) & type=="nominal") {
+      labels <- dt[i, field_values]
+      value <- dt[i, value]
+      hover_label <- str_split(labels, ",", simplify=T)[value + 1]
+      dt[i, hover := hover_label]
+    }
+  }
+  dt[type=="interval", hover := round(as.numeric(value),1)]
+
+  dt[, hover]
+}
+
+render_persona_chart <- function(dt, fields, all_cluster_attributes) {
+  cluster_count <- max(dt$cluster) 
+  chart_data <- build_chart_data(dt, fields);
+  setkey(chart_data, attributes)
+  setkey(fields, name)
+  chart_data <- chart_data[fields]
+  
+  marker_style_1 <- list(color = 'rgb(87,86,86)')
+  marker_style_2 <- list(color = 'rgb(29,150,210)')
+  
+  chart_data <- chart_data[!is.na(V1)]
+  print(head(chart_data))
+  
+
+  for(i in cluster_count:1) {
+    cluster_attributes <- all_cluster_attributes[i,]
+    melted <- melt.data.table(cluster_attributes, measure.vars = 1:ncol(all_cluster_attributes))[, value]
+    count_of_all_properties <- sum(!startsWith(melted, "importance_"))
+    cluster_attributes <- cluster_attributes[, c(1:count_of_properties, (count_of_all_properties + 1):(count_of_all_properties + count_of_reasons)), with=F]
+    col_name <- paste0("rank", i)
+    chart_data[, (col_name):=ifelse(attributes %in% cluster_attributes, 50, 10)]
+  }
+  
+  print("SORTED")
+  print(head(chart_data))
+  
+  
+  renderPlotly({
+    fig <- plot_ly(chart_data,
+                   type = "scatter",
+                   mode = 'lines',
+                   orientation = 'h')
+    
+     #für jeden Cluster/Persona eine eigene Linie
+     for(i in 1:cluster_count) {
+      fig <-
+        fig %>% add_trace(
+          x = chart_data[[i]],
+          y =  ~ display_name,
+          name = paste0("Persona ", i),
+          marker = c(marker_style_1, list(size=chart_data[[ncol(chart_data)+1-i]])),
+          text = build_hover_text(data.table(value=chart_data[[i]]*chart_data[,sd]+chart_data[,mean], type=chart_data[,type],  field_values=chart_data[,values]))
+        )
+     }
+
+    f <- list(
+      family = "IBM Plex Sans",
+      size = 18,
+      color = "#707070"
+    )
+    x <- list(
+      title = "Extent",
+      titlefont = f
+    )
+    y <- list(
+      title = "Attribute",
+      titlefont = f
+    )
+    fig %>% layout(
+      xaxis = x,
+      yaxis = y
+    )
+   
+  })
+}

@@ -1,0 +1,31 @@
+
+scale_data <- function(df) {
+  scaled_data <- as.data.frame(scale(df))
+  scaled_data
+}
+
+calculate_k <- function(df) {
+  res <- NbClust(data = df, diss = NULL, distance="euclidean",
+                 min.nc=2, max.nc=10, method="kmeans", index="all")
+  k <- max(res$Best.partition)
+  k
+}
+
+
+get_kmeans_cluster <- function(df) {
+  set.seed(123)
+  # k <- calculate_k(df)
+  # print("K??????")
+  # print(k)
+  k <- 5
+  km.out <- kmeans(df, k, nstart=10)
+  km.out
+}
+
+get_cluster <- function(df) {
+  df <- scale_data(df)
+  
+  cluster <- get_kmeans_cluster(df)
+  
+  cluster
+}

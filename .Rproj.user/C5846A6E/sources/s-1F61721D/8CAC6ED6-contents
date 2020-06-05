@@ -1,0 +1,126 @@
+import("stats")
+import("caret")
+import("clValid")
+import("NbClust")
+import("fpc")
+import(data.table)
+export("get_cluster", "get_unsorted_Cluster")
+
+count_of_properties <- 3
+count_of_reasons <- 3
+combined_count <- count_of_properties + count_of_reasons
+
+normalize_persona_data <- function(data, min_val=NULL, max_val=NULL) {
+  x <- data[!is.na(data)]
+  if (!is.null(min_val) && !is.null(max_val) && !is.na(min_val) && !is.na(max_val)) {
+    x <- (x - min_val) / (max_val - min_val)
+  } else {
+    x <- (x - min(x)) / (max(x) - min(x))
+  }
+  data[!is.na(data)] <- x
+  return(data)
+}
+
+#bereitet die Daten fuer das Clustering vor
+#scaling und featureauswahl
+get_data_for_clustering <- function(data, fields) {
+  # scaled_data <- as.data.frame(scale(subset(data[data$finished == 1, ], select=c(tenure:workdistance, importance_leader:training_last_year))) )
+  selected_data <- subset(data[data$finished == 1, ], select=c(tenure:workdistance, importance_leader:training_last_year))
+  names <- colnames(selected_data)
+  for(i in names) {
+    named_field <- fields[name==i,c(min, max)]
+    selected_column <- selected_data[, get(i)]
+    altered_column <- normalize_persona_data(selected_column, named_field[1], named_field[2])
+    selected_data[, (i):=altered_column]
+  }
+
+  return(as.data.frame(selected_data))
+}
+
+get_best_k <- function(df) {
+  res<- NbClust(data = df, diss = NULL, distance = "euclidean",
+                min.nc = 2, max.nc = 8, method = "kmeans", index="all")
+  k <- max(res$Best.partition)
+  k
+}
+
+get_cluster_count_for_hierarchical <- function(df) {
+  res<- NbClust(data = df, diss = NULL, distance = "euclidean",
+                min.nc = 2, max.nc = 8, method = "ward.D2", index="duda")
+  k <- max(res$Best.partition)
+  k
+  
+}
+
+#erzeugt die Hierarchical model Ausgabe
+get_hierarchical_model <- function(df) {
+  cluster_count <- get_cluster_count_for_hierarchical(df)
+  hclust.out = hclust(dist(df, method = "euclidean"))
+  hclust.out$cluster = cutree(hclust.out, cluster_count)
+  hclust.out$centers = aggregate(df[1:ncol(df)], list(hclust.out$cluster), median)
+  hclust.out$centers = hclust.out$centers[,2:ncol(hclust.out$centers)]
+  hclust.out
+}
+
+
+
+#ermittelnt die Mittelwerte der Attribute pro Cluster
+get_means_per_attribute <- function(cluster_data, sorted_attributes) {
+
+  top_properties <- sorted_attributes[,!startsWith(colnames(sorted_attributes), "importance_")]
+  top_reasons <- sorted_attributes[,startsWith(colnames(sorted_attributes), "importance_")]
+  
+  count_of_properties <- ncol(top_properties)
+  count_of_reasons <- ncol(top_reasons)
+  combined_count <- count_of_properties + count_of_reasons
+  
+  cluster_attribute_names <- vector("character", combined_count)
+  cluster_attribute_means <- vector("numeric", combined_count)
+  
+  for(j in 1:count_of_properties) {
+    cluster_attribute_names[j] <- names(top_properties[j])
+    attribute_mean = mean(cluster_data[[names(top_properties[j])]])
+    cluster_attribute_means[j] <- attribute_mean
+  }
+  for(j in 1:count_of_reasons) {
+    cluster_attribute_names[j + count_of_properties] <- names(top_reasons[j])
+    attribute_mean = mean(cluster_data[[names(top_reasons[j])]])
+    cluster_attribute_means[j + count_of_properties] <- attribute_mean
+  }
+  names(cluster_attribute_means) <- cluster_attribute_names
+
+  cluster_attribute_means
+}
+
+#sucht das am besten passende Model aus
+get_best_model <- function(df) {
+  output <- get_hierarchical_model(df)
+  output
+}
+get_unsorted_Cluster <- function(data, fields){
+  scaled_data = get_data_for_clustering(data, fields)
+  output <- get_best_model(scaled_data)
+  output
+}
+
+get_cluster <- function(data, unsorted_cluster) {
+  data[["cluster"]] <- as.vector(unsorted_cluster[["cluster"]])
+  attribute_means <- as.data.table(matrix(nrow= nrow(unsorted_cluster$centers), ncol=ncol(unsorted_cluster$centers)))
+  attribute_means <- attribute_means[, lapply(.SD, as.numeric)]
+  attribute_names <- as.data.table(matrix(nrow= nrow(unsorted_cluster$centers), ncol=ncol(unsorted_cluster$centers)))
+  attribute_names <- attribute_names[, lapply(.SD, as.character)]
+        
+  for(i in 1:nrow(unsorted_cluster$centers)) {
+    attribute_centers <- unsorted_cluster$centers[i,]
+    sorted_attributes = sort(-abs(attribute_centers))
+    print(sorted_attributes)
+    cluster_data = data[data$cluster == i]
+    cluster_attribute_means <- get_means_per_attribute(cluster_data, sorted_attributes)
+    attribute_names[i, names(attribute_names) := as.list(names(cluster_attribute_means))]
+    attribute_means[i, names(attribute_means) := as.list(cluster_attribute_means) ]
+  }
+  
+  return(list(names=attribute_names, means=attribute_means))
+}
+
+

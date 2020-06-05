@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1590157542376.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "624BF162",
+    "lastKnownWriteTime" : 1591201785,
+    "last_content_update" : 1591201785420,
+    "path" : "~/workspace/top50spotify/scripts/cluster.R",
+    "project_path" : "scripts/cluster.R",
+    "properties" : {
+        "cursorPosition" : "26,2",
+        "scrollLine" : "0"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 6,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

@@ -1,0 +1,32 @@
+library(shiny)
+library(plotly)
+
+source("scripts/load.R")
+source("scripts/cluster.R")
+
+df <- load_esri()
+cluster <- get_cluster(df)$centers
+# summary(df)
+# names(cluster[1,)]
+cluster <- as.data.frame(cluster)
+print(cluster)
+
+
+ui <- fluidPage(
+  plotlyOutput("cluster"),
+  htmlTemplate("www/cluster.html", cluster=cluster[1,]),
+  htmlTemplate("www/cluster.html", cluster=cluster[2,]),
+  htmlTemplate("www/cluster.html", cluster=cluster[3,]),
+  htmlTemplate("www/cluster.html", cluster=cluster[4,]),
+  htmlTemplate("www/cluster.html", cluster=cluster[5,]),
+)
+
+server <- function(input, output) {
+  output$cluster <- renderPlotly(
+    plot1 <- plot_ly(
+      data =cluster, x = ~socioeconomic)
+  )
+
+}
+
+shinyApp(ui=ui, server=server)

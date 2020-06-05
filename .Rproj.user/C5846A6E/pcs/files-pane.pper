@@ -1,0 +1,9 @@
+{
+    "path" : "~/workspace/top50spotify/scripts",
+    "sortOrder" : [
+        {
+            "ascending" : true,
+            "columnIndex" : 2
+        }
+    ]
+}
